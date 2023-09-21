@@ -8,6 +8,7 @@ import (
 	"go_ether/ar_demo/kits"
 	"log"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -77,7 +78,7 @@ func TestDownloadData(wallet *goar.Wallet, txId string) {
 			_, err := wallet.Client.GetTransactionDataByGateway(txId)
 			//_, err := wallet.Client.GetTransactionData(txId)
 			if err != nil {
-				fmt.Errorf("GetTransactionDataByGateway error,txId:%s,err:%+v", txId, err)
+				fmt.Printf("GetTransactionDataByGateway error,txId:%s,err:%+v", txId, err)
 			}
 			duration = append(duration, int(time.Now().Unix()-now.Unix()))
 			fmt.Println("end download")
@@ -86,14 +87,52 @@ func TestDownloadData(wallet *goar.Wallet, txId string) {
 	wg.Wait()
 	fmt.Println("duration:", duration)
 	kits.GetStats(duration)
+
+}
+
+func TestDownloadFromPath(wallet *goar.Wallet, path string) {
+	var duration []int
+	var wg sync.WaitGroup
+	var downloadData kits.ParametersIterator
+
+	loadCSV, err := kits.LoadCSV(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, r := range loadCSV {
+		split := strings.Split(r, ",")
+		downloadData.Add(split[0])
+	}
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			txId := downloadData.Next().(string)
+			fmt.Println("start download")
+			now := time.Now()
+			_, err := wallet.Client.GetTransactionDataByGateway(txId)
+			//_, err := wallet.Client.GetTransactionData(txId)
+			if err != nil {
+				fmt.Printf("GetTransactionDataByGateway error,txId:%s,err:%+v", txId, err)
+			}
+			duration = append(duration, int(time.Now().Unix()-now.Unix()))
+			fmt.Println("end download")
+		}()
+		time.Sleep(time.Second * 1)
+	}
+	wg.Wait()
+	//fmt.Println("duration:", duration)
+	kits.GetStats(duration)
+
 }
 
 func TestDownloadDataOne(wallet *goar.Wallet, txId string) {
 	var duration []int
 	fmt.Println("start download")
 	now := time.Now()
-	data, err := wallet.Client.GetTransactionDataByGateway(txId)
-	//data, err := wallet.Client.GetTransactionData(txId)
+	//data, err := wallet.Client.GetTransactionDataByGateway(txId)
+	data, err := wallet.Client.GetTransactionData(txId)
 	if err != nil {
 		fmt.Printf("GetTransactionDataByGateway error,txId:%s,err:%+v", txId, err)
 	}
@@ -112,7 +151,7 @@ func TestUpload(wallet *goar.Wallet, dataSize int) {
 	buffer := kits.GetFileByBuffer(dataSize)
 	//buffer :=GetFileByBuffer(dataSize)
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 1; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -156,7 +195,7 @@ func main() {
 	//fmt.Println(len(buffer.Bytes()))
 	//endpoint := "http://localhost:1984"
 	endpoint := "https://arweave.net"
-	wallet, err := CreateWallet("/Users/kyle/Desktop/code/workPlace/golang/ar_demo/test-keyfile.json", endpoint)
+	wallet, err := CreateWallet("./ar_demo/test-keyfile.json", endpoint)
 	if err != nil {
 		panic(err)
 	}
@@ -175,6 +214,7 @@ func main() {
 
 	//TestDownloadData(wallet, "76CWjuI6itsb-rDiI5Y0bfM5hRRCdKBUm9QBxFPCXvQ")
 	//8DEd9GE8YGkfbSA-GUAkCjP5iJ58pG_d_VDmMOvf82E
-	TestDownloadDataOne(wallet, "_N_mixdIJlOMG4bgVZ2Zhf0_iwyfNCnCXIzgEpC7e2A")
+	//TestDownloadDataOne(wallet, "fsmZ_IEg_prSot51d65LbJAQy4rNqj2HBj-AwCCiEi0")
+	TestDownloadFromPath(wallet, "/Users/kyle/Desktop/code/workPlace/golang/demo.csv")
 
 }
